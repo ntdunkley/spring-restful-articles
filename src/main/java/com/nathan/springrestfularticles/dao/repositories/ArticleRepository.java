@@ -7,5 +7,5 @@ import java.time.LocalDate;
 
 public interface ArticleRepository extends CrudRepository<Article, Long> {
     Iterable<Article> findByAuthor(String author);
-    Iterable<Article> findByDateGreaterThanEqual(LocalDate oneWeekAgo);
+    Iterable<Article> findByDateIsBetween(LocalDate today, LocalDate oneWeekAgo);
 }

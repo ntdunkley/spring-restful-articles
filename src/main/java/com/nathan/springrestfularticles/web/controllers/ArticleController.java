@@ -59,10 +59,8 @@ public class ArticleController {
     @GetMapping("/statistics")
     public String statistics() {
         LocalDate currentDate = LocalDate.now();
-        LOG.info(currentDate.toString());
-        LOG.info(currentDate.minus(1, ChronoUnit.WEEKS).toString());
-        // TODO: This assumes published dates aren't set in the future. Fix.
-        Iterable<Article> articles = articleRepository.findByDateGreaterThanEqual(currentDate.minus(1, ChronoUnit.WEEKS));
+        LocalDate oneWeekAgo = currentDate.minus(1, ChronoUnit.WEEKS);
+        Iterable<Article> articles = articleRepository.findByDateIsBetween(oneWeekAgo, currentDate);
         return ((Collection<?>) articles).size() + "\n";
     }
 
