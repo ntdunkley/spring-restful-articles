@@ -5,37 +5,48 @@ import com.nathan.springrestfularticles.dao.repositories.ArticleRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.validation.annotation.Validated;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Optional;
-import java.util.stream.StreamSupport;
 
 @RestController
 @RequestMapping("/article")
-@Validated
 public class ArticleController {
 
     private static final Logger LOG = LoggerFactory.getLogger(ArticleController.class);
+
+    private static final int PAGE_SIZE = 2;
+
     @Autowired
     private ArticleRepository articleRepository;
 
-    @PostMapping("/create")
-    public String create(
-            @RequestParam("title") String title,
-            @RequestParam("author") String author,
-            @RequestParam("content") String content,
-            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
-    ) {
-        if (title.length() > 100) {
-            return "Title cannot exceed 100 characters";
+    @PostMapping(value = "/create", consumes = "application/json")
+    public String create(@RequestBody Article article) {
+        LOG.debug("Title length: " + article.getTitle().length());
+        if (article.getTitle() == null || article.getTitle().isEmpty()) {
+            return "Title must be provided\n";
         }
-        Article article = articleRepository.save(new Article(title, author, content, date));
-        return "Created Article " + article + "\n";
+        if (article.getAuthor() == null || article.getAuthor().isEmpty()) {
+            return "Author must be provided\n";
+        }
+        if (article.getContent() == null || article.getContent().isEmpty()) {
+            return "Content must be provided\n";
+        }
+        if (article.getDate() == null) {
+            return "Date must be provided\n";
+        }
+        if (article.getTitle().length() > 100) {
+            return "Title cannot exceed 100 characters\n";
+        }
+        Article savedArticle = articleRepository.save(article);
+        return "Created Article: " + savedArticle + "\n";
     }
 
     @GetMapping("/getById")
@@ -46,8 +57,15 @@ public class ArticleController {
 
     @GetMapping("/getAll")
     public String getAll() {
-        Iterable<Article> articles = articleRepository.findAll();
-        return buildArticleReport(articles);
+        StringBuilder articleReport = new StringBuilder();
+        Pageable currentPage = PageRequest.of(0, PAGE_SIZE);
+        Page<Article> articles = articleRepository.findAll(currentPage);
+        while (!articles.isEmpty()) {
+            articleReport.append(buildArticlePage(articles, currentPage.getPageNumber()));
+            currentPage = currentPage.next();
+            articles = articleRepository.findAll(currentPage);
+        }
+        return articleReport.toString();
     }
 
     @GetMapping("/getByAuthor")
@@ -61,16 +79,23 @@ public class ArticleController {
         LocalDate currentDate = LocalDate.now();
         LocalDate oneWeekAgo = currentDate.minus(1, ChronoUnit.WEEKS);
         Iterable<Article> articles = articleRepository.findByDateIsBetween(oneWeekAgo, currentDate);
-        return ((Collection<?>) articles).size() + "\n";
+        return ((Collection<Article>) articles).size() + "\n";
     }
 
     private String buildArticleReport(Iterable<Article> articles) {
         StringBuilder articleList = new StringBuilder();
-        int count = 1;
         for (Article article : articles) {
-            articleList.append(count++).append("\t->\t");
             articleList.append(article).append("\n");
         }
         return articleList.toString();
+    }
+
+    private String buildArticlePage(Page<Article> articles, int pageNumber) {
+        StringBuilder articleReport = new StringBuilder();
+        articleReport.append("Page " + pageNumber + ": ");
+        // Loop through articles in current page
+        articles.forEach((article) -> articleReport.append(article).append(", "));
+        articleReport.append("\n");
+        return articleReport.toString();
     }
 }
